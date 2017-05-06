@@ -175,7 +175,7 @@ class DrawSee extends JFrame {
     public void create_points (int n) {
         // generate n point centers according to Gaussian distribution, then justify if the point is a valid point
         // a more efficient method is to use polar axis, which can make sure the point is in bgboundry and avoid is_in_bgboundry() step
-        int timeout = 999999;
+        int timeout = 9999999;
 
         points.clear();
         Random rand = new Random(System.currentTimeMillis());
@@ -196,7 +196,7 @@ class DrawSee extends JFrame {
 
             if (is_in_bgboundry(p) && is_not_overlap(p) && is_valid_size(p)) {
                 points.add(p);
-                timeout = 999999;
+                timeout = 9999999;
             } else timeout = timeout - 1;
 
             if (timeout == 0) {

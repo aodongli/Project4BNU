@@ -14,7 +14,7 @@ diameter=330
 
 # 点的总面积
 # I highly recommend that this value do not exceed 10000
-sum_area=5000
+sum_area=6000
 
 # 任意两圆边缘间的最小值
 min_margin=5
@@ -25,11 +25,11 @@ max_margin=10000
 
 # 每一个点的最小半径
 # I highly recommend users compute the minimum radius first before making any changes. Formula: `r = sqrt(sum_area/n)'
-min_radius=7
+min_radius=8
 
 # 每一个圆的最大半径
 # I highly recommend users compute the maximum radius first before making any changes. Formula: `r = sqrt(sum_area/n)'
-max_radius=50
+max_radius=24
 
 # 点数最小值
 min_num=11
@@ -42,4 +42,4 @@ epoch=1
 
 # 生成点所用的高斯分布的标准差。`1'为0~50间随机产生标准差；`2'为使用min_radiu和max_radius计算
 # 使用2时，计算公式为 sigma = (max_radius*max_radius-min_radius*min_radius)/6
-gen_flag=1
+gen_flag=2
