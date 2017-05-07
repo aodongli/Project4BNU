@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Properties;
+import java.util.Collections;
 import java.io.InputStream;
 
 import javax.imageio.ImageIO;
@@ -78,14 +79,17 @@ class DrawSee extends JFrame {
     private int max_num = 99; // maximum points number
     private int epoch = 50; // generation epochs
 
+    private int is_Gaussian = 0; // 0 for uniform distribution, 1 for Gaussian distribution
     private int gen_flag = 1; // 1 for random sigma with `(0, 50)'; 2 for computed sigma through `min_radius' and `max_radius'
-    private double mean_area = 0; // average area
-    private double sigma = 30; // standard deviation
+    //private double mean_area = 0; // average area
+    //private double sigma = 30; // standard deviation
 
     private Color bgcolor = new Color(0x808080); // background color is gray
     private Color pcolor = new Color(0x000000); // point color is black
 
     private String dpath = "./pics/"; // directory of produced paintings
+
+    private int TIMEOUT = 9999999; // maximum random time
 
     public DrawSee() {
         read_config();
@@ -116,6 +120,7 @@ class DrawSee extends JFrame {
             max_num = Integer.parseInt(p.getProperty("max_num"));
             epoch = Integer.parseInt(p.getProperty("epoch"));
             gen_flag = Integer.parseInt(p.getProperty("gen_flag"));
+            is_Gaussian = Integer.parseInt(p.getProperty("is_Gaussian"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -175,35 +180,92 @@ class DrawSee extends JFrame {
     public void create_points (int n) {
         // generate n point centers according to Gaussian distribution, then justify if the point is a valid point
         // a more efficient method is to use polar axis, which can make sure the point is in bgboundry and avoid is_in_bgboundry() step
-        int timeout = 9999999;
+        int timeout = TIMEOUT;
 
         points.clear();
         Random rand = new Random(System.currentTimeMillis());
 
-        mean_area = (double)sum_area/n; // average area
-        if (gen_flag == 1)
-            sigma = rand.nextInt(50); // standard deviation
-        if (gen_flag == 2)
-            sigma = (int) (max_radius*max_radius-min_radius*min_radius)/6; // standard deviation by rough computation
+        double mean_area = (double)sum_area/n; // average area
         double a = 0; // sampled area
         int r = 0; // compute the according radius of each point
-        
-        while (points.size() < n) {
-            a = sigma*rand.nextGaussian()+mean_area;
-            r = (int) Math.sqrt(a);
 
-            Point p = new Point(rand.nextInt(bgdiameter)+r, rand.nextInt(bgdiameter)+r, r);
+        if (is_Gaussian == 1) { // use Gaussian distribution for generating data
+            double sigma = 0;
+            if (gen_flag == 1)
+                sigma = rand.nextInt(50); // standard deviation
+            if (gen_flag == 2)
+                sigma = (int) (max_radius*max_radius-min_radius*min_radius)/6; // standard deviation by rough computation
 
-            if (is_in_bgboundry(p) && is_not_overlap(p) && is_valid_size(p)) {
-                points.add(p);
-                timeout = 9999999;
-            } else timeout = timeout - 1;
+            while (points.size() < n) {
+                a = sigma*rand.nextGaussian()+mean_area;
+                r = (int) Math.sqrt(a);
 
-            if (timeout == 0) {
-                System.out.println("There is no suitable vacancy for current point. Please modify the parameters.");
-                System.out.println("Some hints: turn `sum_area', `min_radius', `min_margin' smaller and turn `max_radius', `max_margin' larger.");
-                System.out.println("WARNING: If you have set 'gen_flag=2', turn `max_radius' smaller.");
-                return;
+                Point p = new Point(rand.nextInt(bgdiameter)+r, rand.nextInt(bgdiameter)+r, r);
+
+                if (is_in_bgboundry(p) && is_not_overlap(p) && is_valid_size(p)) {
+                    points.add(p);
+                    timeout = 9999999;
+                } else timeout = timeout - 1;
+
+                if (timeout == 0) {
+                    System.out.println("There is no suitable vacancy for current point. Please modify the parameters.");
+                    System.out.println("Some hints: turn `sum_area', `min_radius', `min_margin' smaller and turn `max_radius', `max_margin' larger.");
+                    System.out.println("WARNING: If you have set 'gen_flag=2', turn `max_radius' smaller.");
+                    return;
+                }
+            }
+        } else { // use uniform distribution for generating data
+            int residual_pool = 0; // store the extra area of first half points and available area for second half points
+            List<Double> areas = new ArrayList<Double>(); // list of areas
+
+            double extra_scale = Math.min(mean_area - min_radius*min_radius, max_radius*max_radius - mean_area);
+            while (areas.size() < n/2) {
+                a = rand.nextInt((int) extra_scale);
+                residual_pool += (int) a;
+                areas.add(mean_area - a);
+            }
+            
+            double max_area = max_radius*max_radius;
+            while (areas.size() < n) {
+                a = rand.nextInt(residual_pool);
+                if (mean_area+a <= max_area) {
+                    residual_pool -= (int) a;
+                    areas.add(mean_area + a);
+                }
+            }
+            
+            while (residual_pool > 1) {
+                int idx = rand.nextInt(n);
+                a = rand.nextInt(residual_pool);
+                areas.set(idx, areas.get(idx) + a);
+                residual_pool -= (int) a;
+            }
+
+            Collections.sort(areas);
+            Collections.reverse(areas);
+
+            //for (double j : areas) // Debug information
+            //    System.out.println(j);
+
+            int i = 0;
+            while (points.size() < n) {
+                a = areas.get(i);
+                r = (int) Math.sqrt(a);
+
+                Point p = new Point(rand.nextInt(bgdiameter)+r, rand.nextInt(bgdiameter)+r, r);
+
+                if (is_in_bgboundry(p) && is_not_overlap(p) && is_valid_size(p)) {
+                    points.add(p);
+                    i += 1;
+                    timeout = TIMEOUT;
+                } else timeout = timeout - 1;
+
+                if (timeout == 0) {
+                    System.out.println("There is no suitable vacancy for current point. Please modify the parameters.");
+                    System.out.println("Some hints: turn `sum_area', `min_radius', `min_margin' smaller and turn `max_radius', `max_margin' larger.");
+                    System.out.println("WARNING: If you have set 'gen_flag=2', turn `max_radius' smaller.");
+                    return;
+                }
             }
         }
     }
